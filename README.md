@@ -5,7 +5,7 @@ The documentation for the existing untill-successfull scope
 https://docs.mulesoft.com/mule-user-guide/v/3.6/until-successful-scope
 
 The new router config will now look like following
-
+```xml
 <custom-router class="com.cts.mule.router.DynamicUntilSucessfulRouter">
 	<http:outbound-endpoint address="http://xyz.yz" exchange-pattern="request-response" method="POST" doc:name="HTTP" responseTimeout="5000"/>
 	<spring:property name="maxRetriesExpression" value="#[2 + 2]" />
@@ -14,3 +14,4 @@ The new router config will now look like following
 	<spring:property name="synchronous" value="true" />
 	<spring:property name="secondsBetweenRetries" value="5" />
 </custom-router>
+```
