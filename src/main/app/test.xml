@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:vm="http://www.mulesoft.org/schema/mule/vm" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+<spring:beans>
+		<spring:bean id="objectStore"
+			class="org.mule.util.store.SimpleMemoryObjectStore" />
+	</spring:beans>
+
+	<flow name="retrying-http-bridge">
+		<vm:inbound-endpoint path="acme-bridge"
+			exchange-pattern="one-way" doc:name="VM" />
+		<echo-component	doc:name="Echo" />
+		<logger message="trying again" level="INFO" doc:name="Logger" />
+		<!-- <until-successful objectStore-ref="objectStore" failureExpression="#[header:INBOUND:http.status 
+			!= 202] || #[header:INBOUND:http.status != 404]" maxRetries="6" secondsBetweenRetries="600" 
+			doc:name="Until Successful"> <http:outbound-endpoint address="http://acme.com/api/flakey" 
+			exchange-pattern="request-response" method="POST" doc:name="HTTP" /> </until-successful> -->
+		<custom-router class="com.cts.mule.router.DynamicUntilSucessfulRouter">
+			<http:outbound-endpoint address="http://xyz.yz"
+				exchange-pattern="request-response" method="POST" doc:name="HTTP" responseTimeout="5000"/>
+
+			<!-- <spring:property name="objectStore" ref="objectStore" /> -->
+			<spring:property name="maxRetriesExpression" value="#[2 + 2]" />
+			<spring:property name="maxRetries" value="2" />
+			<spring:property name="failureExpression" value="#[exception != null &amp;&amp; (exception.causedBy(java.net.ConnectException) || exception.causedBy(java.net.SocketTimeoutException)) || message.inboundProperties['http.status'] != 200]" />
+			<spring:property name="synchronous" value="true" />
+			<spring:property name="secondsBetweenRetries" value="5" /> 
+		</custom-router>
+	</flow>
+	
+	<flow name="retrying-http-bridge2">
+    <vm:inbound-endpoint path="acme-bridge"
+                         exchange-pattern="one-way" />
+    <until-successful failureExpression="#[exception != null &amp;&amp; (exception.causedBy(java.net.ConnectException) || exception.causedBy(java.net.SocketTimeoutException)) || message.inboundProperties['http.status'] != 200]"
+                      maxRetries="6"
+                      secondsBetweenRetries="5" synchronous="true">
+        <http:outbound-endpoint address="http://xyz.yz"
+                                exchange-pattern="request-response"
+                                method="POST" responseTimeout="5000"/>
+    </until-successful>
+</flow>
+</mule>
