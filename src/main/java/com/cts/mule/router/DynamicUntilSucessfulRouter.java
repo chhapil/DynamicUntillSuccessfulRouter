@@ -1,6 +1,5 @@
 package com.cts.mule.router;
 
-
 /*
  *(c) 2003-2015 MuleSoft, Inc. This software is protected under international copyright
  *law. All use of this software is subject to MuleSoft's Master Subscription Agreement
@@ -27,7 +26,9 @@ import org.mule.routing.UntilSuccessfulProcessingStrategy;
 import org.mule.routing.filters.ExpressionFilter;
 import org.mule.routing.outbound.AbstractOutboundRouter;
 import org.mule.util.Preconditions;
+import org.mule.util.concurrent.NamedThreadFactory;
 
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -52,8 +53,7 @@ import java.util.concurrent.TimeUnit;
  * To execute until-successful synchronously the threading profile defined on it
  * must have doThreading attribute set with false value.
  */
-public class DynamicUntilSucessfulRouter extends AbstractOutboundRouter
-		implements DynamicUntilSucessfulConfig {
+public class DynamicUntilSucessfulRouter extends AbstractOutboundRouter implements DynamicUntilSucessfulConfig {
 
 	public static final String PROCESS_ATTEMPT_COUNT_PROPERTY_NAME = "process.attempt.count";
 	static final int DEFAULT_PROCESS_ATTEMPT_COUNT_PROPERTY_VALUE = 1;
@@ -77,17 +77,14 @@ public class DynamicUntilSucessfulRouter extends AbstractOutboundRouter
 	@Override
 	public void initialise() throws InitialisationException {
 		if (routes.isEmpty()) {
-			throw new InitialisationException(
-					MessageFactory
-							.createStaticMessage("One message processor must be configured within UntilSuccessful."),
-					this);
+			throw new InitialisationException(MessageFactory
+					.createStaticMessage("One message processor must be configured within UntilSuccessful."), this);
 		}
 
 		if (routes.size() > 1) {
 			throw new InitialisationException(
-					MessageFactory
-							.createStaticMessage("Only one message processor is allowed within UntilSuccessful."
-									+ " Use a Processor Chain to group several message processors into one."),
+					MessageFactory.createStaticMessage("Only one message processor is allowed within UntilSuccessful."
+							+ " Use a Processor Chain to group several message processors into one."),
 					this);
 		}
 
@@ -99,19 +96,18 @@ public class DynamicUntilSucessfulRouter extends AbstractOutboundRouter
 			if (deadLetterQueue instanceof EndpointBuilder) {
 				try {
 
-					dlqMP = ((EndpointBuilder) deadLetterQueue)
-							.buildOutboundEndpoint();
+					dlqMP = ((EndpointBuilder) deadLetterQueue).buildOutboundEndpoint();
 				} catch (final EndpointException ee) {
 					throw new InitialisationException(
-							MessageFactory.createStaticMessage("deadLetterQueue-ref is not a valid endpoint builder: "
-									+ deadLetterQueue), ee, this);
+							MessageFactory.createStaticMessage(
+									"deadLetterQueue-ref is not a valid endpoint builder: " + deadLetterQueue),
+							ee, this);
 				}
 			} else if (deadLetterQueue instanceof MessageProcessor) {
 				dlqMP = (MessageProcessor) deadLetterQueue;
 			} else {
-				throw new InitialisationException(
-						MessageFactory.createStaticMessage("deadLetterQueue-ref is not a valid mesage processor: "
-								+ deadLetterQueue), null, this);
+				throw new InitialisationException(MessageFactory.createStaticMessage(
+						"deadLetterQueue-ref is not a valid mesage processor: " + deadLetterQueue), null, this);
 			}
 		}
 
@@ -122,12 +118,9 @@ public class DynamicUntilSucessfulRouter extends AbstractOutboundRouter
 		}
 		failureExpressionFilter.setMuleContext(muleContext);
 
-		if ((ackExpression != null)
-				&& (!muleContext.getExpressionManager().isExpression(
-						ackExpression))) {
+		if ((ackExpression != null) && (!muleContext.getExpressionManager().isExpression(ackExpression))) {
 			throw new InitialisationException(
-					MessageFactory.createStaticMessage("Invalid ackExpression: "
-							+ ackExpression), this);
+					MessageFactory.createStaticMessage("Invalid ackExpression: " + ackExpression), this);
 		}
 
 		if (synchronous) {
@@ -155,17 +148,15 @@ public class DynamicUntilSucessfulRouter extends AbstractOutboundRouter
 		boolean hasSeconds = secondsBetweenRetries != null;
 		boolean hasMillis = millisBetweenRetries != null;
 
-		Preconditions
-				.checkArgument(
-						!(hasSeconds && hasMillis),
-						"Can't specify millisBetweenRetries and secondsBetweenRetries properties at the same time. Please specify only one and remember that secondsBetweenRetries is deprecated.");
+		Preconditions.checkArgument(!(hasSeconds && hasMillis),
+				"Can't specify millisBetweenRetries and secondsBetweenRetries properties at the same time. Please specify only one and remember that secondsBetweenRetries is deprecated.");
 
 		if (hasSeconds) {
-			logger.warn("You're using the secondsBetweenRetries in the until-successful router. That attribute was deprecated in favor of the new millisBetweenRetries."
-					+ "Please consider updating your config since the old attribute will be removed in Mule 4");
+			logger.warn(
+					"You're using the secondsBetweenRetries in the until-successful router. That attribute was deprecated in favor of the new millisBetweenRetries."
+							+ "Please consider updating your config since the old attribute will be removed in Mule 4");
 
-			setMillisBetweenRetries(TimeUnit.SECONDS
-					.toMillis(secondsBetweenRetries));
+			setMillisBetweenRetries(TimeUnit.SECONDS.toMillis(secondsBetweenRetries));
 		} else if (!hasMillis) {
 			millisBetweenRetries = DEFAULT_MILLIS_BETWEEN_RETRIES;
 		}
@@ -295,6 +286,13 @@ public class DynamicUntilSucessfulRouter extends AbstractOutboundRouter
 
 	public void setMaxRetriesExpression(String maxRetriesExpression) {
 		this.maxRetriesExpression = maxRetriesExpression;
+	}
+
+	@Override
+	public ScheduledThreadPoolExecutor createScheduledRetriesPool(String threadPrefix) {
+		return new ScheduledThreadPoolExecutor(1,
+				new NamedThreadFactory(threadPrefix + "_retries", Thread.currentThread().getContextClassLoader()));
+
 	}
 
 }
