@@ -4,6 +4,9 @@ This Router extends existing until-successful scope from Mule to add Dynamic Mul
 The documentation for the existing untill-successfull scope
 https://docs.mulesoft.com/mule-user-guide/v/3.6/until-successful-scope
 
+This is a fix for following open issue in Mule
+https://www.mulesoft.org/jira/browse/MULE-6296
+
 The new router config will now look like following
 ```xml
 <custom-router class="com.cts.mule.router.DynamicUntilSucessfulRouter">
